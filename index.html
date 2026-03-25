@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AD Community Research Assistant</title>
+  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0e1016;
+      --surface: #141720;
+      --surface2: #1a1e2b;
+      --border: #252838;
+      --border2: #1e2230;
+      --text: #ddd8ce;
+      --muted: #6b7280;
+      --dim: #3d4357;
+      --community: #e07b54;
+      --expert: #5b9bd5;
+      --green: #5cb87a;
+    }
+    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'Lora', Georgia, serif; font-size: 15px; }
+    #app { display: flex; flex-direction: column; height: 100vh; max-width: 900px; margin: 0 auto; }
+
+    /* HEADER */
+    header {
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      padding: 14px 24px; display: flex; align-items: center;
+      justify-content: space-between; flex-shrink: 0; gap: 12px;
+    }
+    .hdr-title { display: flex; align-items: center; gap: 10px; font-size: 17px; font-weight: 600; color: #ece8e0; }
+    .hdr-sub { font-size: 11px; color: var(--muted); font-family: 'JetBrains Mono', monospace; margin-left: 32px; margin-top: 3px; }
+    .status-pill {
+      font-family: 'JetBrains Mono', monospace; font-size: 11px;
+      padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border);
+      background: var(--surface2); color: var(--muted); white-space: nowrap;
+      transition: all 0.4s;
+    }
+    .status-pill.ready { border-color: #2d5a38; background: #111f16; color: var(--green); }
+    .status-pill.loading-data { border-color: #4a3a1a; background: #1a1508; color: #c8a84a; }
+
+    /* PERSONA BAR */
+    .persona-bar {
+      background: #111419; border-bottom: 1px solid var(--border2);
+      padding: 10px 24px; display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+    }
+    .plabel { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--dim); margin-right: 4px; letter-spacing: 0.1em; }
+    .pbtn {
+      background: transparent; border: 1.5px solid var(--border); color: var(--muted);
+      border-radius: 20px; padding: 6px 16px; cursor: pointer; font-size: 13px;
+      font-family: 'Lora', serif; display: flex; align-items: center; gap: 6px; transition: all 0.2s;
+    }
+    .pbtn:hover { border-color: #4a4f66; color: var(--text); }
+    .pbtn.ac { background: rgba(224,123,84,.12); border-color: var(--community); color: var(--community); }
+    .pbtn.ae { background: rgba(91,155,213,.12); border-color: var(--expert); color: var(--expert); }
+    .pdesc { font-size: 11px; color: var(--dim); font-style: italic; margin-left: 6px; }
+
+    /* LOADING SCREEN */
+    #loadScreen {
+      flex: 1; display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 20px; padding: 40px;
+    }
+    .load-brain { font-size: 52px; animation: pulse 2s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{transform:scale(1);opacity:.7} 50%{transform:scale(1.1);opacity:1} }
+    .load-title { font-size: 18px; color: #ece8e0; font-weight: 600; }
+    .load-sub { font-size: 13px; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+    .progress-bar { width: 280px; height: 4px; background: var(--surface2); border-radius: 2px; overflow: hidden; }
+    .progress-fill { height: 100%; background: var(--community); border-radius: 2px; transition: width 0.5s ease; width: 0%; }
+
+    /* MESSAGES */
+    #messages { flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 16px; scroll-behavior: smooth; }
+    .notice { text-align: center; }
+    .notice span {
+      font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--dim);
+      background: var(--surface); border: 1px solid var(--border2); border-radius: 20px; padding: 4px 14px;
+    }
+    .msg-row { display: flex; align-items: flex-start; gap: 10px; }
+    .msg-row.user { flex-direction: row-reverse; }
+    .avatar {
+      width: 36px; height: 36px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; flex-shrink: 0; margin-top: 2px;
+    }
+    .av-c { background: rgba(224,123,84,.15); border: 1.5px solid rgba(224,123,84,.35); }
+    .av-e { background: rgba(91,155,213,.15); border: 1.5px solid rgba(91,155,213,.35); }
+    .bubble { max-width: 74%; border-radius: 4px 18px 18px 18px; padding: 12px 16px; font-size: 14px; line-height: 1.75; white-space: pre-wrap; }
+    .bubble.asst { background: var(--surface); border: 1px solid var(--border2); }
+    .bubble.usr { background: #1a1f3a; border: 1px solid #282e50; border-radius: 18px 4px 18px 18px; color: #aab8e0; }
+    .ptag { font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: .1em; margin-bottom: 6px; text-transform: uppercase; }
+    .typing-dots { display: flex; gap: 5px; padding: 4px 0; }
+    .typing-dots span { width: 7px; height: 7px; border-radius: 50%; animation: bounce 1.2s ease-in-out infinite; }
+    .typing-dots span:nth-child(2) { animation-delay: .2s; }
+    .typing-dots span:nth-child(3) { animation-delay: .4s; }
+    @keyframes bounce { 0%,100%{transform:scale(.7);opacity:.35} 50%{transform:scale(1.2);opacity:1} }
+
+    /* INPUT */
+    footer { background: #111419; border-top: 1px solid var(--border2); padding: 14px 24px; flex-shrink: 0; }
+    .input-row { display: flex; align-items: flex-end; gap: 10px; }
+    .input-wrap { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 10px 16px; }
+    textarea { width: 100%; background: transparent; border: none; outline: none; color: var(--text); font-size: 14px; font-family: 'Lora', serif; line-height: 1.6; resize: none; min-height: 24px; max-height: 140px; }
+    textarea::placeholder { color: var(--dim); }
+    .send-btn { width: 44px; height: 44px; border-radius: 12px; border: none; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all .2s; background: var(--border); color: var(--dim); }
+    .send-btn.rc { background: var(--community); color: #fff; }
+    .send-btn.re { background: var(--expert); color: #fff; }
+    .fnote { text-align: center; font-size: 11px; color: var(--dim); margin-top: 8px; font-family: 'JetBrains Mono', monospace; }
+
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    @media(max-width:600px){ .bubble{max-width:90%} .pdesc{display:none} }
+
+    /* API KEY MODAL */
+    #apiModal {
+      position: fixed; inset: 0; z-index: 1000;
+      background: rgba(10,11,16,0.92);
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px; backdrop-filter: blur(4px);
+    }
+    .modal-box {
+      background: #161920; border: 1px solid #2e3245;
+      border-radius: 18px; padding: 36px 40px;
+      max-width: 460px; width: 100%;
+      display: flex; flex-direction: column; gap: 20px;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.6);
+    }
+    .modal-icon { font-size: 38px; text-align: center; }
+    .modal-title { font-size: 20px; font-weight: 600; color: #ece8e0; text-align: center; }
+    .modal-desc { font-size: 13px; color: var(--muted); line-height: 1.7; text-align: center; }
+    .modal-desc a { color: var(--expert); text-decoration: none; }
+    .modal-desc a:hover { text-decoration: underline; }
+    .modal-input-wrap {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 12px 16px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .modal-input-wrap:focus-within { border-color: var(--community); }
+    #apiKeyInput {
+      flex: 1; background: transparent; border: none; outline: none;
+      color: var(--text); font-size: 14px; font-family: 'JetBrains Mono', monospace;
+    }
+    #apiKeyInput::placeholder { color: var(--dim); font-family: 'Lora', serif; }
+    .toggle-vis { background: none; border: none; cursor: pointer; color: var(--muted); font-size: 16px; padding: 0; }
+    .modal-btn {
+      background: var(--community); color: #fff; border: none;
+      border-radius: 10px; padding: 13px; font-size: 15px;
+      font-family: 'Lora', serif; font-weight: 600;
+      cursor: pointer; transition: opacity 0.2s;
+    }
+    .modal-btn:hover { opacity: 0.88; }
+    .modal-btn:disabled { opacity: 0.4; cursor: default; }
+    .modal-error { font-size: 12px; color: #e07070; text-align: center; font-family: 'JetBrains Mono', monospace; display: none; }
+    .modal-note { font-size: 11px; color: var(--dim); text-align: center; font-family: 'JetBrains Mono', monospace; line-height: 1.6; }
+  </style>
+</head>
+<body>
+<div id="app">
+
+<!-- API KEY MODAL -->
+<div id="apiModal">
+  <div class="modal-box">
+    <div class="modal-icon">🔑</div>
+    <div class="modal-title">Researcher Setup</div>
+    <div class="modal-desc">
+      Enter your Anthropic API key to activate the research assistant.<br/>
+      Your key is never stored — it lives only in this browser session.<br/>
+      Get a key at <a href="https://platform.anthropic.com" target="_blank">platform.anthropic.com</a>
+    </div>
+    <div class="modal-input-wrap">
+      <input id="apiKeyInput" type="password" placeholder="sk-ant-api03-..." autocomplete="off" oninput="validateKey()"/>
+      <button class="toggle-vis" onclick="toggleKeyVis()" title="Show/hide key">👁</button>
+    </div>
+    <div class="modal-error" id="modalError"></div>
+    <button class="modal-btn" id="modalBtn" onclick="submitKey()" disabled>Start Research Session →</button>
+    <div class="modal-note">🔒 Key held in tab memory only · never sent to any server except Anthropic</div>
+  </div>
+</div>
+
+
+  <header>
+    <div>
+      <div class="hdr-title">🧠 AD Community Research Assistant</div>
+      <div class="hdr-sub">Alzheimer's Disease · 4 Community Platforms · 19,383+ threads</div>
+    </div>
+    <div id="statusPill" class="status-pill loading-data">⏳ Loading data...</div>
+  </header>
+
+  <div class="persona-bar">
+    <span class="plabel">PERSPECTIVE</span>
+    <button class="pbtn ac" id="btnC" onclick="switchPersona('community')">🫂 Community Member</button>
+    <button class="pbtn"    id="btnE" onclick="switchPersona('expert')">🔬 AD Expert</button>
+    <span class="pdesc" id="pdesc">Lived experience, peer support perspective</span>
+  </div>
+
+  <!-- LOADING SCREEN -->
+  <div id="loadScreen">
+    <div class="load-brain">🧠</div>
+    <div class="load-title">Indexing community data…</div>
+    <div class="load-sub" id="loadSub">Loading thread index</div>
+    <div class="progress-bar"><div class="progress-fill" id="progFill"></div></div>
+  </div>
+
+  <!-- CHAT (hidden until data loads) -->
+  <div id="messages" style="display:none"></div>
+  <footer id="footer" style="display:none">
+    <div class="input-row">
+      <div class="input-wrap">
+        <textarea id="inputBox" rows="1"
+          placeholder="Ask the Community Member something about AD experiences..."
+          oninput="autoResize(this);updateSendBtn()"
+          onkeydown="handleKey(event)"></textarea>
+      </div>
+      <button class="send-btn" id="sendBtn" onclick="sendMessage()">↑</button>
+    </div>
+    <div class="fnote">For research purposes only &nbsp;·&nbsp; Enter to send &nbsp;·&nbsp; Shift+Enter for new line</div>
+  </footer>
+
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+// API KEY — stored in sessionStorage, never in code
+// ─────────────────────────────────────────────
+let API_KEY = ''; // set at runtime via modal
+
+// ─────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────
+let persona = 'community';
+let threadIndex = [];   // [{h, date, replies, src, snippet}]
+let isLoading = false;
+let history = [];       // [{role, content}]
+
+const PERSONAS = {
+  community: {
+    label: 'Community Member', icon: '🫂', color: '#e07b54',
+    desc: 'Lived experience, peer support perspective',
+    placeholder: 'Ask the Community Member something about AD experiences...',
+    avClass: 'av-c', btnClass: 'ac', sendClass: 'rc',
+    welcome: "Hi there 👋 I've spent a lot of time in Alzheimer's caregiver and patient communities — I've read through thousands of posts and conversations from the Alzheimer's Society UK forum, AgingCare, AlzConnected, and Talking Point. Whether you want to talk about symptoms, daily caregiving challenges, treatments others have tried, emotional struggles, or just understand what others are going through — I'm here. What's on your mind?",
+    system: `You are a long-standing member of an online Alzheimer's Disease (AD) community forum (forum.alzheimers.org.uk). You speak from lived experience — as a caregiver, family member, or someone closely affected by AD. Your tone is warm, empathetic, peer-like, and emotionally grounded.
+
+You have read and internalized thousands of real forum discussions from this community. When you respond, you draw on this community knowledge naturally — as if you've personally read every thread, every comment, every story shared.
+
+When responding:
+- Speak as someone "in the community" — use phrases like "A lot of us have found...", "Many caregivers here mention...", "I've seen so many people go through..."
+- Be emotionally present and validating
+- Reference the kinds of experiences, concerns, and strategies people in the community have shared
+- Keep language human, relatable — avoid overly clinical terms
+- Draw specifically on the RELEVANT THREADS provided to you below`
+  },
+  expert: {
+    label: 'AD Expert', icon: '🔬', color: '#5b9bd5',
+    desc: 'Clinical & research-informed perspective',
+    placeholder: 'Ask the AD Expert a research question...',
+    avClass: 'av-e', btnClass: 'ae', sendClass: 're',
+    welcome: "Hello. I'm here to help you explore insights from multiple Alzheimer's Disease online community platforms through a research and clinical lens. I have access to threads from the Alzheimer's Society UK forum, AgingCare, AlzConnected, and Talking Point — covering caregiver experiences, symptom discussions, treatment questions, emotional support, and end-of-life care across thousands of real community conversations. What would you like to explore?",
+    system: `You are an Alzheimer's Disease (AD) researcher and clinical expert who has conducted deep analysis of online health community data from multiple platforms: forum.alzheimers.org.uk (Alzheimer's Society UK), AgingCare, AlzConnected, and Talking Point.
+
+You have analyzed tens of thousands of forum threads covering the full spectrum of AD experiences: diagnosis journeys, symptom progression, medication discussions, caregiving strategies, emotional wellbeing, care home transitions, and end-of-life care.
+
+When responding:
+- Speak with authority and analytical precision, while remaining accessible
+- Reference community patterns analytically: "Across the forum data, a recurring theme is...", "Community members frequently report...", "The discussions suggest..."
+- Connect community-reported experiences to clinical and research knowledge
+- Use the RELEVANT THREADS provided below as your primary evidence base
+- Note patterns, frequencies, and nuances in what people share
+- Be appropriately rigorous — acknowledge uncertainty where it exists`
+  }
+};
+
+// ─────────────────────────────────────────────
+// DATA LOADING
+// ─────────────────────────────────────────────
+
+// Google Drive direct download URLs for the 3 large external datasets
+const REMOTE_DATASETS = [
+  {
+    name: 'AgingCare',
+    url: 'https://drive.google.com/uc?export=download&id=1TL5DERx2StTdc1mv9zklwovVug1q6jD0',
+    tag: 'agingcare'
+  },
+  {
+    name: 'AlzConnected',
+    url: 'https://drive.google.com/uc?export=download&id=13B3LPEca9LKuBzNgCcLCcFgT3tFF7qqq',
+    tag: 'alzconnected'
+  },
+  {
+    name: 'Talking Point',
+    url: 'https://drive.google.com/uc?export=download&id=1n-7MtH-ygQWc0y_mMasmIg_qKHBTTjBK',
+    tag: 'talkingpoint'
+  }
+];
+
+// Parse NDJSON (newline-delimited JSON) or regular JSON array
+function parseJsonData(text) {
+  const lines = text.trim().split('\n');
+  // If first line parses as object and there are multiple lines → NDJSON
+  try {
+    const first = JSON.parse(lines[0]);
+    if (typeof first === 'object' && lines.length > 1) {
+      return lines.map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+    }
+  } catch {}
+  // Otherwise try as regular JSON
+  return JSON.parse(text);
+}
+
+// Convert a parsed record from any dataset into our index format
+function normalizeRecord(d, tag) {
+  // Try common field names across different dataset formats
+  const heading = d.heading || d.title || d.subject || d.post_title || '';
+  const date    = d.start_date || d.date || d.created_at || d.post_date || '';
+  const replies = d.replies || d.reply_count || d.num_replies || '0';
+  const comments = d.comments || d.posts || d.replies_list || d.messages || [];
+  const body    = d.body || d.content || d.text || d.post_body || '';
+  // Get first meaningful text block
+  let snippet = '';
+  if (Array.isArray(comments) && comments.length > 0) {
+    const first = comments[0];
+    snippet = (typeof first === 'string' ? first : (first.body || first.text || first.content || JSON.stringify(first))).slice(0, 400);
+  } else if (body) {
+    snippet = body.slice(0, 400);
+  }
+  return { h: heading.trim(), date, replies: String(replies), src: tag, snippet: snippet.trim() };
+}
+
+async function loadData() {
+  try {
+    // Step 1: Load local talkpoint index (fast, already pre-built)
+    setProgress(5, 'Loading Alzheimer\'s Society index...');
+    const resp = await fetch('./data/index.json');
+    if (!resp.ok) throw new Error('Could not load index.json');
+    const localIndex = await resp.json();
+    threadIndex = [...localIndex];
+    setProgress(25, `${threadIndex.length.toLocaleString()} local threads loaded — fetching remote datasets...`);
+
+    // Step 2: Fetch the 3 Google Drive datasets in parallel
+    const progressSteps = [50, 75, 95];
+    const results = await Promise.allSettled(
+      REMOTE_DATASETS.map(async (ds, i) => {
+        setProgress(progressSteps[i] - 10, `Fetching ${ds.name}...`);
+        const r = await fetch(ds.url);
+        if (!r.ok) throw new Error(`${ds.name}: HTTP ${r.status}`);
+        const text = await r.text();
+        const records = parseJsonData(text);
+        const normalized = records.map(d => normalizeRecord(d, ds.tag)).filter(r => r.h || r.snippet);
+        setProgress(progressSteps[i], `${ds.name}: ${normalized.length.toLocaleString()} threads added`);
+        return normalized;
+      })
+    );
+
+    // Step 3: Merge all successful datasets
+    let remoteCount = 0;
+    const failedDatasets = [];
+    results.forEach((result, i) => {
+      if (result.status === 'fulfilled') {
+        threadIndex = [...threadIndex, ...result.value];
+        remoteCount += result.value.length;
+      } else {
+        failedDatasets.push(REMOTE_DATASETS[i].name);
+        console.warn(`Failed to load ${REMOTE_DATASETS[i].name}:`, result.reason);
+      }
+    });
+
+    const warnMsg = failedDatasets.length > 0 ? ` (${failedDatasets.join(', ')} unavailable)` : '';
+    setProgress(100, `${threadIndex.length.toLocaleString()} total threads indexed${warnMsg}`);
+    await sleep(500);
+    onDataReady(failedDatasets);
+
+  } catch(err) {
+    document.getElementById('loadSub').textContent = '⚠️ Error: ' + err.message;
+    console.error(err);
+  }
+}
+
+function setProgress(pct, msg) {
+  document.getElementById('progFill').style.width = pct + '%';
+  document.getElementById('loadSub').textContent = msg;
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function onDataReady(failedDatasets = []) {
+  document.getElementById('loadScreen').style.display = 'none';
+  document.getElementById('messages').style.display = 'flex';
+  document.getElementById('footer').style.display = 'block';
+
+  const pill = document.getElementById('statusPill');
+  pill.textContent = `✓ ${threadIndex.length.toLocaleString()} threads loaded`;
+  pill.classList.remove('loading-data');
+  pill.classList.add('ready');
+
+  // Update subtitle with actual count
+  document.querySelector('.hdr-sub').textContent =
+    `Alzheimer's Disease · 4 Community Platforms · ${threadIndex.length.toLocaleString()} threads`;
+
+  if (failedDatasets.length > 0) {
+    const warn = document.createElement('div');
+    warn.style.cssText = 'background:#1e1a10;border-bottom:1px solid #4a3a1a;color:#c8a84a;padding:7px 24px;font-size:12px;font-family:JetBrains Mono,monospace;';
+    warn.textContent = `⚠️ Could not load: ${failedDatasets.join(', ')} — check Google Drive permissions are set to "Anyone with the link"`;
+    document.getElementById('app').insertBefore(warn, document.getElementById('messages'));
+  }
+
+  appendWelcome('community');
+}
+
+// ─────────────────────────────────────────────
+// SEMANTIC SEARCH (keyword-based)
+// ─────────────────────────────────────────────
+function searchThreads(query, topN = 15) {
+  const words = query.toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w.length > 3 && !STOPWORDS.has(w));
+
+  if (words.length === 0) {
+    // Return random sample if no useful keywords
+    return shuffled(threadIndex).slice(0, topN);
+  }
+
+  const scored = threadIndex.map(t => {
+    const text = (t.h + ' ' + t.snippet).toLowerCase();
+    let score = 0;
+    for (const w of words) {
+      if (text.includes(w)) score += 2;
+      // Heading match weighted higher
+      if (t.h.toLowerCase().includes(w)) score += 3;
+    }
+    return { thread: t, score };
+  });
+
+  return scored
+    .filter(s => s.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, topN)
+    .map(s => s.thread);
+}
+
+function shuffled(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function buildContext(query) {
+  const threads = searchThreads(query, 15);
+  if (threads.length === 0) return '';
+  const lines = threads.map(t =>
+    `Thread: "${t.h}" (${t.date}, ${t.replies} replies)\n${t.snippet}`
+  ).join('\n\n---\n\n');
+  return `\n\n════════════════════════════════
+RELEVANT COMMUNITY FORUM THREADS (from ${threadIndex.length.toLocaleString()} total):
+════════════════════════════════
+${lines}
+════════════════════════════════`;
+}
+
+const STOPWORDS = new Set(['that','this','with','from','have','been','they','their','will','about','what','when','where','which','there','would','could','should','just','also','very','more','some','into','your','know','does','like','does','were','then','than','other','only','over','such','need','make','much','even','most','used','many','well','both','each','each','after','before','because','those','these','through','being','here','also']);
+
+// ─────────────────────────────────────────────
+// PERSONA SWITCH
+// ─────────────────────────────────────────────
+function switchPersona(p) {
+  if (p === persona) return;
+  persona = p;
+  history = [];
+  const pd = PERSONAS[p];
+
+  document.getElementById('btnC').className = 'pbtn' + (p === 'community' ? ' ac' : '');
+  document.getElementById('btnE').className = 'pbtn' + (p === 'expert'    ? ' ae' : '');
+  document.getElementById('pdesc').textContent = pd.desc;
+  document.getElementById('inputBox').placeholder = pd.placeholder;
+
+  appendNotice(`Switched to ${pd.label} perspective`);
+  appendWelcome(p);
+  updateSendBtn();
+}
+
+// ─────────────────────────────────────────────
+// SEND
+// ─────────────────────────────────────────────
+async function sendMessage() {
+  const box = document.getElementById('inputBox');
+  const text = box.value.trim();
+  if (!text || isLoading) return;
+
+  box.value = '';
+  box.style.height = 'auto';
+  updateSendBtn();
+
+  appendMsg('user', text, persona);
+  history.push({ role: 'user', content: text });
+  setLoading(true);
+  const tid = appendTyping();
+
+  try {
+    const context = buildContext(text);
+    const pd = PERSONAS[persona];
+    const systemPrompt = pd.system + context;
+
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': API_KEY,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-api-key-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1024,
+        system: systemPrompt,
+        messages: history
+      })
+    });
+
+    removeTyping(tid);
+
+    if (!resp.ok) {
+      const e = await resp.json().catch(() => ({}));
+      throw new Error(e.error?.message || `HTTP ${resp.status}`);
+    }
+
+    const data = await resp.json();
+    const reply = (data.content || []).map(b => b.text || '').join('');
+    history.push({ role: 'assistant', content: reply });
+    appendMsg('assistant', reply, persona);
+
+  } catch(err) {
+    removeTyping(tid);
+    appendMsg('assistant', `⚠️ Error: ${err.message}`, persona);
+  } finally {
+    setLoading(false);
+  }
+}
+
+// ─────────────────────────────────────────────
+// DOM HELPERS
+// ─────────────────────────────────────────────
+function appendWelcome(p) { appendMsg('assistant', PERSONAS[p].welcome, p); }
+
+function appendMsg(role, content, p) {
+  const pd = PERSONAS[p] || PERSONAS[persona];
+  const msgs = document.getElementById('messages');
+  const row = document.createElement('div');
+  row.className = 'msg-row' + (role === 'user' ? ' user' : '');
+
+  if (role === 'assistant') {
+    const av = document.createElement('div');
+    av.className = 'avatar ' + pd.avClass;
+    av.textContent = pd.icon;
+    row.appendChild(av);
+  }
+
+  const bub = document.createElement('div');
+  bub.className = 'bubble ' + (role === 'user' ? 'usr' : 'asst');
+
+  if (role === 'assistant') {
+    const tag = document.createElement('div');
+    tag.className = 'ptag';
+    tag.style.color = pd.color;
+    tag.textContent = pd.label;
+    bub.appendChild(tag);
+  }
+
+  const txt = document.createElement('div');
+  txt.textContent = content;
+  bub.appendChild(txt);
+  row.appendChild(bub);
+  msgs.appendChild(row);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function appendNotice(msg) {
+  const msgs = document.getElementById('messages');
+  const d = document.createElement('div');
+  d.className = 'notice';
+  d.innerHTML = `<span>${msg}</span>`;
+  msgs.appendChild(d);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+let tc = 0;
+function appendTyping() {
+  const id = 'typ-' + (++tc);
+  const pd = PERSONAS[persona];
+  const msgs = document.getElementById('messages');
+  const row = document.createElement('div');
+  row.className = 'msg-row'; row.id = id;
+  const av = document.createElement('div');
+  av.className = 'avatar ' + pd.avClass;
+  av.textContent = pd.icon;
+  const bub = document.createElement('div');
+  bub.className = 'bubble asst';
+  const dots = document.createElement('div');
+  dots.className = 'typing-dots';
+  for (let i = 0; i < 3; i++) {
+    const s = document.createElement('span');
+    s.style.background = pd.color;
+    dots.appendChild(s);
+  }
+  bub.appendChild(dots);
+  row.appendChild(av); row.appendChild(bub);
+  msgs.appendChild(row);
+  msgs.scrollTop = msgs.scrollHeight;
+  return id;
+}
+
+function removeTyping(id) { const el = document.getElementById(id); if (el) el.remove(); }
+
+function setLoading(v) { isLoading = v; updateSendBtn(); }
+
+function updateSendBtn() {
+  const btn = document.getElementById('sendBtn');
+  const val = document.getElementById('inputBox').value.trim();
+  const pd = PERSONAS[persona];
+  btn.className = 'send-btn' + (val && !isLoading ? ' ' + pd.sendClass : '');
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 140) + 'px';
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+}
+
+// ─────────────────────────────────────────────
+// API KEY MODAL
+// ─────────────────────────────────────────────
+function validateKey() {
+  const val = document.getElementById('apiKeyInput').value.trim();
+  document.getElementById('modalBtn').disabled = !val.startsWith('sk-ant-');
+  document.getElementById('modalError').style.display = 'none';
+}
+
+function toggleKeyVis() {
+  const inp = document.getElementById('apiKeyInput');
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+}
+
+function submitKey() {
+  const val = document.getElementById('apiKeyInput').value.trim();
+  if (!val.startsWith('sk-ant-')) return;
+  // Store key and proceed — validity confirmed on first real message
+  API_KEY = val;
+  sessionStorage.setItem('ad_research_key', val);
+  document.getElementById('apiModal').style.display = 'none';
+  loadData();
+}
+
+// ─────────────────────────────────────────────
+// START — show modal unless key already in session
+// ─────────────────────────────────────────────
+const _savedKey = sessionStorage.getItem('ad_research_key');
+if (_savedKey) {
+  API_KEY = _savedKey;
+  document.getElementById('apiModal').style.display = 'none';
+  loadData();
+}
+// Otherwise modal stays visible until researcher enters key
+</script>
+</body>
+</html>
